@@ -1,0 +1,205 @@
+// Prisma schema for SQLite corrigé
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Models
+
+model User {
+  id                   String   @id @default(uuid())
+  email                String   @unique
+  password             String
+  firstName            String?
+  lastName             String?
+  profileImage         String?
+  phoneNumber          String?
+  role                 String  @default("CLIENT")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  subscription         String  @default("FREE")
+  isVerified           Boolean @default(false)
+  verificationToken    String?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  portfolioUrl         String?
+  artworks             Artwork[]        @relation("ArtistArtworks")
+  orders               Order[]           @relation("ClientOrders")
+  printerOrders        Order[]           @relation("PrinterOrders")
+  notifications        Notification[]
+  printerProfile       PrinterProfile?
+}
+
+model ArtistProfile {
+  id           String              @id @default(uuid())
+  bio          String?
+  portfolioUrl String?
+  capabilities PrinterCapability[] @relation("ArtistProfileToCapability")
+  specialties  ArtistSpecialty[]   @relation("ArtistProfileToSpecialty")
+  createdAt    DateTime             @default(now())
+}
+
+model PrinterProfile {
+  id             String   @id @default(uuid())
+  companyName    String
+  address        String
+  capabilities   PrinterCapability[] @relation("PrinterProfileCapabilities")
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String              @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ArtistSpecialty {
+  id              String         @id @default(uuid())
+  name            String
+  artistProfile   ArtistProfile  @relation("ArtistProfileToSpecialty", fields: [artistProfileId], references: [id], onDelete: Cascade)
+  artistProfileId String
+}
+
+model PrinterCapability {
+  id               String           @id @default(uuid())
+  capability       String
+  printerProfile   PrinterProfile   @relation("PrinterProfileCapabilities", fields: [printerProfileId], references: [id], onDelete: Cascade)
+  printerProfileId String
+  artistProfiles   ArtistProfile[]  @relation("ArtistProfileToCapability")
+}
+
+model Artwork {
+  id                    String               @id @default(uuid())
+  title                 String
+  description           String?
+  tags                  Tag[]                @relation("ArtworkTags")
+  price                 Float
+  isCustomizable        Boolean               @default(true)
+  isPrintable           Boolean               @default(true)
+  status                String                @default("PENDING_APPROVAL")
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  artist                User                  @relation("ArtistArtworks", fields: [artistId], references: [id])
+  artistId              String
+  categories            Category[]            @relation("ArtworkCategories")
+  customizationOptions  CustomizationOption[]
+  orderItems            OrderItem[]
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  artworks  Artwork[] @relation("ArtworkTags")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  artworks    Artwork[] @relation("ArtworkCategories")
+}
+
+model CustomizationOption {
+  id         String   @id @default(uuid())
+  name       String
+  type       String
+  options    String
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  artworkId  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Order {
+  id               String    @id @default(uuid())
+  orderNumber      String    @unique
+  status           String    @default("CART")
+  totalAmount      Float
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  client           User      @relation("ClientOrders", fields: [clientId], references: [id])
+  clientId         String
+  printer          User?     @relation("PrinterOrders", fields: [printerId], references: [id])
+  printerId        String?
+  items            OrderItem[]
+  payment          Payment?
+  shippingDetails  ShippingDetails?
+  statusHistory    OrderStatusHistory[]
+}
+
+model OrderItem {
+  id              String    @id @default(uuid())
+  quantity        Int       @default(1)
+  unitPrice       Float
+  customizations  String?
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String
+  artwork         Artwork   @relation(fields: [artworkId], references: [id])
+  artworkId       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model OrderStatusHistory {
+  id         String    @id @default(uuid())
+  status     String
+  comment    String?
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String
+  createdAt  DateTime  @default(now())
+  createdBy  String
+}
+
+model Payment {
+  id              String    @id @default(uuid())
+  amount          Float
+  method          String
+  status          String    @default("PENDING")
+  transactionId   String?   @unique
+  paymentDetails  String?
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String    @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model ShippingDetails {
+  id             String    @id @default(uuid())
+  address        String
+  city           String
+  postalCode     String?
+  country        String
+  contactPhone   String
+  trackingNumber String?
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        String    @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Notification {
+  id           String    @id @default(uuid())
+  type         String
+  content      String
+  status       String    @default("PENDING")
+  recipient    User      @relation(fields: [recipientId], references: [id])
+  recipientId  String
+  metadata     String?
+  createdAt    DateTime  @default(now())
+  sentAt       DateTime?
+}
+
+model AiGenerationRequest {
+  id             String   @id @default(uuid())
+  prompt         String
+  imageUrl       String?
+  resultImageUrl String?
+  status         String   @default("PENDING")
+  userId         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
 // Envoyer un email de vérification
 export const sendVerificationEmail = async (email, token) => {
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${token}`
-  if (process.env.NODE_ENV === 'developpement') {
+  if (process.env.NODE_ENV === 'production') {
     // envoyer les emails avec transporter.sendMail()
   } else {
     console.log('EMAIL SIMULÉ (pas d\'envoi en développement)');
